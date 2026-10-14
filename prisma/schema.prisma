@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String   @unique @db.VarChar(100)
+  desc      String?  @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users       User[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Feature {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  key              String   @unique @db.VarChar(100)
+  name             String   @db.VarChar(100)
+  desc             String?  @db.VarChar(255)
+  availableActions String[] @map("available_actions")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  permissions RolePermission[]
+
+  @@map("features")
+}
+
+model RolePermission {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  featureId String   @map("feature_id") @db.Uuid
+  isRead    Boolean  @default(false) @map("is_read")
+  isAdd     Boolean  @default(false) @map("is_add")
+  isEdit    Boolean  @default(false) @map("is_edit")
+  isDelete  Boolean  @default(false) @map("is_delete")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, featureId])
+  @@index([featureId])
+  @@map("role_permissions")
+}
+
+model User {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(191)
+  password  String
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  role  Role   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  notes Note[]
+
+  @@index([roleId])
+  @@map("users")
+}
+
+model Note {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  title     String   @db.VarChar(150)
+  content   String?  @db.Text
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notes")
+}
