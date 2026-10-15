@@ -82,3 +82,16 @@ model Note {
   @@index([userId])
   @@map("notes")
 }
+
+
+model LoginAttempt {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  email     String   @db.VarChar(191)
+  ip        String   @db.VarChar(64)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+  @@index([createdAt])
+  @@map("login_attempts")
+}

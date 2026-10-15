@@ -5,16 +5,11 @@ import { getSession } from "@/lib/session";
 import { getPermissionMap } from "@/lib/permission";
 import { NAV_GROUPS } from "@/lib/navigation";
 import { Suspense } from "react";
+import DashboardLoading from "../loading";
 
 export default function page() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-gray-50 text-sm text-gray-500">
-          Memuat...
-        </div>
-      }
-    >
+    <Suspense fallback={<DashboardLoading />}>
       <DashboardPage />
     </Suspense>
   );

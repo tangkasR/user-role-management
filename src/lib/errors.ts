@@ -23,3 +23,23 @@ export class ForbiddenError extends AppError {
     this.name = "ForbiddenError";
   }
 }
+
+export class ValidationError extends AppError {
+  fieldErrors: Record<string, string>;
+
+  constructor(
+    fieldErrors: Record<string, string>,
+    message = "Periksa kembali isian form"
+  ) {
+    super(message);
+    this.name = "ValidationError";
+    this.fieldErrors = fieldErrors;
+  }
+}
+
+// Kode error Prisma (misalnya "P2002" untuk pelanggaran unique)
+export function errorCode(e: unknown): string | undefined {
+  return typeof e === "object" && e !== null && "code" in e
+    ? String(e.code)
+    : undefined;
+}

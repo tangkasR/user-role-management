@@ -1,8 +1,18 @@
 // src/app/(dashboard)/forbidden/page.tsx   (file baru)
 import Link from "next/link";
 import { ShieldX } from "lucide-react";
+import { Suspense } from "react";
+import DashboardLoading from "../loading";
 
-export default function ForbiddenPage() {
+export default function page() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <ForbiddenPage />
+    </Suspense>
+  );
+}
+
+function ForbiddenPage() {
   return (
     <div className="mx-auto mt-16 max-w-md text-center">
       <span className="mx-auto flex size-14 items-center justify-center rounded-full bg-red-50 text-red-600">

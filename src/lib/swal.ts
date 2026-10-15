@@ -1,10 +1,9 @@
-// src/lib/swal.ts
 import Swal from "sweetalert2";
 
 export function swalSuccess(title: string, text?: string) {
   return Swal.fire({
     icon: "success",
-    title,
+    titleText: title,
     text,
     timer: 1800,
     showConfirmButton: false,
@@ -12,7 +11,12 @@ export function swalSuccess(title: string, text?: string) {
 }
 
 export function swalError(title: string, text?: string) {
-  return Swal.fire({ icon: "error", title, text, confirmButtonText: "Tutup" });
+  return Swal.fire({
+    icon: "error",
+    titleText: title,
+    text,
+    confirmButtonText: "Tutup",
+  });
 }
 
 export async function swalConfirm(opts: {
@@ -22,7 +26,7 @@ export async function swalConfirm(opts: {
   icon?: "warning" | "question" | "info";
 }) {
   const res = await Swal.fire({
-    title: opts.title,
+    titleText: opts.title,
     text: opts.text,
     icon: opts.icon ?? "warning",
     showCancelButton: true,

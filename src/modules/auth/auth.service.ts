@@ -2,11 +2,16 @@
 import "server-only";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { AppError } from "@/lib/errors";
+import { AppError, errorCode } from "@/lib/errors";
 import { ROLE_DEFAULT } from "@/lib/constants";
 import type { LoginInput, RegisterInput } from "./auth.schema";
 
 const COST = 12;
+
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILED_PER_EMAIL = 5;
+const MAX_FAILED_PER_IP = 20;
+const RETENTION_MS = 24 * 60 * 60 * 1000;
 
 // Hash pembanding supaya waktu respons sama baik email ada maupun tidak
 let dummyHash: string | undefined;
@@ -14,11 +19,44 @@ async function getDummyHash() {
   return (dummyHash ??= await bcrypt.hash("dummy-password-untuk-timing", COST));
 }
 
+// Dicek SEBELUM bcrypt: percobaan yang diblokir tidak membebani CPU
+async function assertNotRateLimited(email: string, ip: string) {
+  const since = new Date(Date.now() - WINDOW_MS);
+
+  const byEmail = await prisma.loginAttempt.count({
+    where: { email, createdAt: { gte: since } },
+  });
+  // IP "unknown" (header proxy tidak ada) dilewati, supaya semua pengguna tidak berbagi satu jatah
+  const byIp =
+    ip === "unknown"
+      ? 0
+      : await prisma.loginAttempt.count({
+          where: { ip, createdAt: { gte: since } },
+        });
+
+  if (byEmail >= MAX_FAILED_PER_EMAIL || byIp >= MAX_FAILED_PER_IP) {
+    throw new AppError(
+      "Terlalu banyak percobaan login. Coba lagi beberapa menit lagi."
+    );
+  }
+}
+
+async function recordFailedLogin(email: string, ip: string) {
+  await prisma.loginAttempt.create({ data: { email, ip } });
+  // bersihkan data lama supaya tabel tidak membengkak
+  await prisma.loginAttempt.deleteMany({
+    where: { createdAt: { lt: new Date(Date.now() - RETENTION_MS) } },
+  });
+}
+
 // Mengembalikan userId kalau kredensial benar, null kalau salah
-export async function authenticate({
-  email,
-  password,
-}: LoginInput): Promise<string | null> {
+// Melempar AppError kalau kena pembatasan
+export async function authenticate(
+  { email, password }: LoginInput,
+  ip: string
+): Promise<string | null> {
+  await assertNotRateLimited(email, ip);
+
   const user = await prisma.user.findUnique({
     where: { email },
     select: { id: true, password: true },
@@ -28,7 +66,15 @@ export async function authenticate({
     password,
     user?.password ?? (await getDummyHash())
   );
-  return user && ok ? user.id : null;
+
+  if (!user || !ok) {
+    // dicatat juga untuk email yang tidak terdaftar: perilakunya sama, tidak membocorkan email valid
+    await recordFailedLogin(email, ip);
+    return null;
+  }
+
+  await prisma.loginAttempt.deleteMany({ where: { email } });
+  return user.id;
 }
 
 export async function registerUser({
@@ -61,14 +107,8 @@ export async function registerUser({
     return user.id;
   } catch (e) {
     // dua pendaftaran bersamaan dengan email sama: ditolak oleh unique constraint
-    if (
-      typeof e === "object" &&
-      e !== null &&
-      "code" in e &&
-      e.code === "P2002"
-    ) {
+    if (errorCode(e) === "P2002")
       throw new AppError("Email sudah terdaftar", "email");
-    }
     throw e;
   }
 }

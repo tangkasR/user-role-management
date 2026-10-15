@@ -7,6 +7,16 @@ import { authenticate, registerUser } from "./auth.service";
 import { createSession, deleteSession } from "@/lib/session";
 import { AppError } from "@/lib/errors";
 import { zodFieldErrors } from "@/lib/utils";
+import { headers } from "next/headers";
+// IP hanya bisa dipercaya bila aplikasi berada di belakang proxy yang mengisi header ini
+async function clientIp() {
+  const h = await headers();
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    "unknown";
+  return ip.slice(0, 64); // sesuai panjang kolom
+}
 
 const str = (v: FormDataEntryValue | null) => (typeof v === "string" ? v : "");
 
@@ -26,8 +36,9 @@ export async function login(
 
   let userId: string | null;
   try {
-    userId = await authenticate(parsed.data);
+    userId = await authenticate(parsed.data, await clientIp());
   } catch (e) {
+    if (e instanceof AppError) return { error: e.message, values };
     console.error("[login]", e);
     return { error: "Terjadi kesalahan pada server", values };
   }
